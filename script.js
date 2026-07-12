@@ -96,6 +96,50 @@
 
   var cta = document.getElementById("cta");
 
+  /* ----------------------------------------------------------------
+     3.5 escape from the Instagram / Facebook in-app browser.
+     inside the IG webview fans are logged out of everything, so we
+     bounce the tap out to the real system browser (Safari / Chrome).
+     if the trick is blocked, a fallback opens the link normally.
+     ---------------------------------------------------------------- */
+
+  (function () {
+    var ua = navigator.userAgent || "";
+    var inApp = /Instagram|FBAN|FBAV|FB_IAB|FBIOS/i.test(ua);
+    if (!inApp) return;
+
+    var isIOS = /iPhone|iPad|iPod/i.test(ua);
+    var isAndroid = /Android/i.test(ua);
+    if (!isIOS && !isAndroid) return;
+
+    cta.addEventListener("click", function (e) {
+      e.preventDefault();
+      var url = cta.href;
+
+      /* fallback: if we're still here after 1.6s, the escape failed —
+         open the link the normal way inside the webview */
+      var fallback = setTimeout(function () {
+        window.location.href = url;
+      }, 1600);
+      var cancel = function () { clearTimeout(fallback); };
+      window.addEventListener("pagehide", cancel, { once: true });
+      window.addEventListener("blur", cancel, { once: true });
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) cancel();
+      }, { once: true });
+
+      if (isIOS) {
+        /* opens Safari from the IG in-app browser */
+        window.location.href = "x-safari-" + url;
+      } else {
+        /* opens the default browser (Chrome) on Android */
+        window.location.href =
+          "intent://" + url.replace(/^https?:\/\//, "") +
+          "#Intent;scheme=https;action=android.intent.action.VIEW;end";
+      }
+    });
+  })();
+
   cta.addEventListener("pointerdown", function (e) {
     if (reducedMotion) return;
     for (var i = 0; i < 7; i++) {
