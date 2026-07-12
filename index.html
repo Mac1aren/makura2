@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#5ba8e5">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Makura.exe</title>
+  <meta name="description" content="Personal space — keep exploring.">
+
+  <link rel="preload" as="image" href="avatar.jpg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ═══════════ bliss-inspired living background ═══════════ -->
+  <div class="sky" aria-hidden="true"></div>
+
+  <!-- sun + glare -->
+  <div class="sun" aria-hidden="true"></div>
+  <div class="sun-streak" aria-hidden="true"></div>
+
+  <!-- drifting clouds (3 depth layers, soft photographic haze) -->
+  <div class="clouds" id="clouds" aria-hidden="true">
+    <div class="cloud cloud--far   c1"></div>
+    <div class="cloud cloud--far   c2"></div>
+    <div class="cloud cloud--mid   c3"></div>
+    <div class="cloud cloud--mid   c4"></div>
+    <div class="cloud cloud--near  c5"></div>
+    <div class="cloud cloud--far   c6"></div>
+  </div>
+
+  <!-- atmospheric haze at the horizon -->
+  <div class="horizon-haze" aria-hidden="true"></div>
+
+  <!-- rolling green hills -->
+  <svg class="hills" viewBox="0 0 1440 500" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="hillFar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0"  stop-color="#b3c98b"/>
+        <stop offset="1"  stop-color="#87a95e"/>
+      </linearGradient>
+      <linearGradient id="hillMid" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0"  stop-color="#93b464"/>
+        <stop offset="1"  stop-color="#638c3e"/>
+      </linearGradient>
+      <linearGradient id="hillNear" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0"   stop-color="#79a24a"/>
+        <stop offset="0.55" stop-color="#537d2f"/>
+        <stop offset="1"   stop-color="#3c6122"/>
+      </linearGradient>
+      <linearGradient id="hillShine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0"   stop-color="rgba(255,255,240,0)"/>
+        <stop offset="0.5" stop-color="rgba(255,255,235,0.22)"/>
+        <stop offset="1"   stop-color="rgba(255,255,240,0)"/>
+      </linearGradient>
+    </defs>
+    <path fill="url(#hillFar)" opacity="0.85"
+      d="M0,268 C320,208 640,236 900,224 C1120,214 1300,196 1440,214 L1440,500 L0,500 Z"/>
+    <path fill="url(#hillMid)" opacity="0.95"
+      d="M0,330 C280,272 560,300 840,288 C1080,278 1280,262 1440,282 L1440,500 L0,500 Z"/>
+    <path fill="url(#hillNear)"
+      d="M0,430 C300,352 620,392 900,368 C1140,348 1320,362 1440,344 L1440,500 L0,500 Z"/>
+    <path class="hill-shine" fill="url(#hillShine)"
+      d="M0,430 C300,352 620,392 900,368 C1140,348 1320,362 1440,344 L1440,500 L0,500 Z"/>
+  </svg>
+
+  <!-- fine noise so gradients feel like a rendered wallpaper -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ═══════════ the window ═══════════ -->
+  <main class="scene">
+    <section class="window" id="window" aria-label="Makura personal page">
+
+      <!-- title bar -->
+      <header class="titlebar">
+        <div class="titlebar-left">
+          <span class="titlebar-icon" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <circle cx="8" cy="5.4" r="3.1" fill="#fff" opacity="0.95"/>
+              <path d="M2.5 14 C2.5 10.6 5 9 8 9 C11 9 13.5 10.6 13.5 14 Z" fill="#fff" opacity="0.95"/>
+            </svg>
+          </span>
+          <span class="titlebar-text">Makura.exe</span>
+        </div>
+        <div class="titlebar-controls" aria-hidden="true">
+          <span class="tb-btn tb-min"><i></i></span>
+          <span class="tb-btn tb-max"><i></i></span>
+          <span class="tb-btn tb-close">×</span>
+        </div>
+      </header>
+
+      <!-- window body -->
+      <div class="window-body">
+
+        <div class="avatar-wrap">
+          <div class="avatar-ring">
+            <img src="avatar.jpg" alt="makura" class="avatar" draggable="false">
+            <span class="avatar-gloss" aria-hidden="true"></span>
+          </div>
+          <span class="status-chip">
+            <span class="status-dot" aria-hidden="true"></span>
+            online now
+          </span>
+        </div>
+
+        <h1 class="title">Welcome to my&nbsp;private&nbsp;space</h1>
+        <p class="subtitle">Private photos &amp; exclusive content inside.<br>Keep exploring.</p>
+
+        <!-- ═ THE button ═ -->
+        <a class="cta" id="cta" href="https://fansly.com/makuraaaah/t6?r=meoww" rel="noopener">
+          <span class="cta-gloss" aria-hidden="true"></span>
+          <span class="cta-shine" aria-hidden="true"></span>
+          <span class="cta-label">
+            Open&nbsp;Profile
+            <svg class="cta-arrow" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+              <circle cx="8" cy="8" r="7.2" fill="rgba(255,255,255,0.28)"/>
+              <path d="M6 4.4 L10 8 L6 11.6" fill="none" stroke="#fff" stroke-width="1.9"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
+
+      </div>
+
+      <!-- status bar -->
+      <footer class="statusbar" aria-hidden="true">
+        <span class="statusbar-cell statusbar-cell--grow">
+          <svg viewBox="0 0 14 14" width="11" height="11" class="lock">
+            <rect x="2.6" y="6" width="8.8" height="6" rx="1.4" fill="#7a9c53"/>
+            <path d="M4.6 6 V4.4 a2.4 2.4 0 0 1 4.8 0 V6" fill="none" stroke="#7a9c53" stroke-width="1.5"/>
+          </svg>
+          Secure connection
+        </span>
+        <span class="statusbar-cell">makura.online</span>
+      </footer>
+
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
