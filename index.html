@@ -249,69 +249,164 @@ body{font-family:"Segoe UI",Tahoma,Verdana,system-ui,sans-serif;color:var(--ink)
 
 <script>
 /* ============================================================
-   external-open + analytics — shared across all three pages
-   goal: from an in-app webview (Instagram/FB/TikTok/…) open the
-   link in the REAL browser as reliably as the platform allows;
-   everywhere else open a new tab; always fall back gracefully.
-   the destination is read from the card's href (single source).
+   external-open — deep-link escape from in-app webviews
+   ------------------------------------------------------------
+   Mechanism (same class bouncy.ai / linktree use):
+   fire a browser URL-SCHEME on the user gesture so iOS/Android
+   hands the link to a REAL browser instead of the in-app webview.
+
+   iOS: the winning scheme is Chrome's `googlechromes://` (documented,
+        reliable when Chrome is installed). Safari has no official
+        scheme; `x-safari-` works only on some builds, so it's a
+        secondary attempt. We try them in sequence and cancel the
+        moment the app backgrounds (= a browser opened).
+   Android: `intent://…;S.browser_fallback_url=…;end` opens the
+        default browser.
+   If every silent attempt no-ops, we show a one-tap guide overlay
+   (which also RE-TRIES the schemes on its button — a fresh gesture)
+   and lets the user continue in-app so they're never trapped.
+
+   Destination is read from the card's href (single source of truth).
    ============================================================ */
-(function(){
+(function () {
   "use strict";
-  var card=document.getElementById("card");
-  if(!card)return;
-  var URL_=card.getAttribute("href");
+  var card = document.getElementById("card");
+  if (!card) return;
+  var URL_ = card.getAttribute("href");
+  var HOSTPATH = URL_.replace(/^https?:\/\//, "");
 
-  /* ---- analytics beacon (never delays navigation) ---- */
-  /* paste your collector URL here to measure prelander→fansly CTR;
-     leave "" to disable. */
-  var ANALYTICS_ENDPOINT="";
-  function track(){
-    if(!ANALYTICS_ENDPOINT)return;
-    try{navigator.sendBeacon(ANALYTICS_ENDPOINT,
-      JSON.stringify({e:"cta",p:location.hostname,t:Date.now()}));}catch(_){}
+  var ANALYTICS_ENDPOINT = ""; /* paste collector URL to measure CTR; "" = off */
+  function track(ev) {
+    if (!ANALYTICS_ENDPOINT) return;
+    try { navigator.sendBeacon(ANALYTICS_ENDPOINT,
+      JSON.stringify({ e: ev || "cta", p: location.hostname, t: Date.now() })); } catch (_) {}
   }
 
-  var ua=navigator.userAgent||"";
-  var inApp=/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|Snapchat|TikTok|musical_ly|Twitter|Pinterest|OkHttp/i.test(ua);
-  var iOS=/iPhone|iPad|iPod/i.test(ua);
-  var android=/Android/i.test(ua);
+  var ua = navigator.userAgent || "";
+  var inApp = /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|Snapchat|TikTok|musical_ly|Twitter|Pinterest|OkHttp/i.test(ua);
+  var iOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && "ontouchend" in document);
+  var android = /Android/i.test(ua);
 
-  function bounceThenFallback(schemeUrl){
-    /* try the escape; if we're still visible after 1.5s it was
-       blocked → open the plain https url so the fan is never stuck */
-    var t=setTimeout(function(){ location.href=URL_; },1500);
-    function cancel(){clearTimeout(t);}
-    addEventListener("pagehide",cancel,{once:true});
-    addEventListener("blur",cancel,{once:true});
-    document.addEventListener("visibilitychange",function(){if(document.hidden)cancel();},{once:true});
-    location.href=schemeUrl;
+  /* ---------- run a list of scheme URLs until one backgrounds us ---------- */
+  function trySchemes(list, onExhausted) {
+    var done = false, i = 0;
+    function stop() { done = true; }
+    document.addEventListener("visibilitychange", function () { if (document.hidden) stop(); }, { once: true });
+    window.addEventListener("pagehide", stop, { once: true });
+    window.addEventListener("blur", stop, { once: true });
+    (function next() {
+      if (done) return;
+      if (i >= list.length) { if (onExhausted) onExhausted(); return; }
+      var url = list[i++];
+      try {
+        /* iframe for custom schemes avoids a visible failed top-nav;
+           direct assignment is used for the intent:// case */
+        if (url.indexOf("intent://") === 0) { window.location.href = url; }
+        else {
+          var f = document.createElement("iframe");
+          f.style.cssText = "display:none";
+          f.src = url;
+          document.body.appendChild(f);
+          setTimeout(function () { try { f.remove(); } catch (_) {} }, 200);
+          /* some iOS builds only honour top-level assignment → also try it */
+          window.location.href = url;
+        }
+      } catch (_) {}
+      setTimeout(next, 450);
+    })();
   }
 
-  function openExternal(){
-    if(inApp&&iOS){
-      /* opens Safari out of the in-app webview */
-      bounceThenFallback("x-safari-"+URL_);
+  function iosEscape(onFail) {
+    trySchemes([
+      "googlechromes://" + HOSTPATH,   /* Chrome (https) — the reliable one */
+      "x-safari-" + URL_               /* Safari — best effort on some builds */
+    ], onFail);
+  }
+  function androidEscape(onFail) {
+    trySchemes([
+      "intent://" + HOSTPATH +
+        "#Intent;scheme=https;action=android.intent.action.VIEW;" +
+        "S.browser_fallback_url=" + encodeURIComponent(URL_) + ";end"
+    ], onFail);
+  }
+  function escapeNow(onFail) {
+    if (android) androidEscape(onFail);
+    else iosEscape(onFail);           /* iOS + other in-app */
+  }
+
+  /* ---------- clipboard (so they can paste in their browser) ---------- */
+  function copyLink() {
+    return new Promise(function (res) {
+      if (navigator.clipboard && navigator.clipboard.writeText)
+        navigator.clipboard.writeText(URL_).then(function () { res(true); }, function () { res(fallbackCopy()); });
+      else res(fallbackCopy());
+    });
+  }
+  function fallbackCopy() {
+    try {
+      var i = document.createElement("input");
+      i.value = URL_; i.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+      document.body.appendChild(i); i.focus(); i.select(); i.setSelectionRange(0, URL_.length);
+      var ok = document.execCommand("copy"); i.remove(); return ok;
+    } catch (_) { return false; }
+  }
+
+  /* ---------- guide overlay (final fallback + fresh-gesture retry) ---------- */
+  function showOverlay() {
+    if (document.getElementById("__ob")) return;
+    track("overlay");
+    var menu = android ? "⋮" : "•••";
+    var stepOpen = android ? "Open in Chrome" : "Open in external browser";
+
+    var w = document.createElement("div");
+    w.id = "__ob"; w.setAttribute("role", "dialog");
+    w.style.cssText =
+      "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;" +
+      "padding:24px;background:rgba(22,16,32,.58);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);" +
+      "font-family:inherit;animation:__obf .25s ease both";
+    w.innerHTML =
+      '<div style="position:absolute;top:8px;right:16px;display:flex;flex-direction:column;align-items:center;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);animation:__obb 1.1s ease-in-out infinite">' +
+        '<div style="font-size:30px;line-height:.9">&#8599;</div><div style="font-size:12px;font-weight:700">tap ' + menu + '</div></div>' +
+      '<div style="max-width:330px;width:100%;background:#fff;border-radius:22px;padding:24px 22px 20px;text-align:center;box-shadow:0 26px 70px rgba(0,0,0,.45);color:#2b2540">' +
+        '<div style="font-size:15px;font-weight:800;color:#c2559a">♡ one quick step ♡</div>' +
+        '<div style="margin-top:8px;font-size:18px;font-weight:800;line-height:1.25">open me in your browser</div>' +
+        '<div style="margin-top:6px;font-size:13.5px;line-height:1.45;color:#6b6480">Instagram&#39;s browser hides some things &mdash; see everything in your real browser.</div>' +
+        '<button id="__obo" style="margin-top:16px;width:100%;border:0;cursor:pointer;padding:14px;border-radius:999px;font-family:inherit;font-size:15px;font-weight:800;letter-spacing:.3px;color:#fff;background:linear-gradient(110deg,#ef7fc4,#b183f2 55%,#f091b4);box-shadow:0 10px 24px -8px rgba(200,90,170,.7)">open in browser</button>' +
+        '<div style="margin-top:14px;text-align:left;font-size:13px;color:#3b3550;line-height:1.5">' +
+          '<div style="display:flex;gap:9px;margin-bottom:7px"><b style="flex:none;display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#f4e3f4;color:#c2559a;font-size:11px">1</b><span>or tap <b>' + menu + '</b> at the top&#8209;right</span></div>' +
+          '<div style="display:flex;gap:9px"><b style="flex:none;display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#f4e3f4;color:#c2559a;font-size:11px">2</b><span>choose <b>&ldquo;' + stepOpen + '&rdquo;</b></span></div>' +
+        '</div>' +
+        '<button id="__obc" style="margin-top:14px;width:100%;border:1px solid #e6def0;cursor:pointer;padding:11px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:700;background:#faf7fe;color:#7a6fa0">copy my link</button>' +
+        '<a id="__obg" href="' + URL_ + '" style="display:inline-block;margin-top:12px;font-size:12.5px;color:#8a83a0;text-decoration:underline;text-underline-offset:2px">or just continue here &rsaquo;</a>' +
+      '</div>';
+    var st = document.createElement("style");
+    st.textContent = "@keyframes __obf{from{opacity:0}to{opacity:1}}@keyframes __obb{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}#__obo:active,#__obc:active{transform:scale(.98)}";
+    document.head.appendChild(st);
+    document.body.appendChild(w);
+
+    /* primary button = a FRESH gesture → retry the schemes */
+    w.querySelector("#__obo").addEventListener("click", function (e) { e.preventDefault(); track("retry"); escapeNow(); });
+    var cbtn = w.querySelector("#__obc");
+    cbtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      copyLink().then(function (ok) { cbtn.textContent = ok ? "link copied ✓" : URL_; if (ok) { cbtn.style.color = "#4a9a5c"; cbtn.style.borderColor = "#bfe6c8"; } });
+    });
+    w.querySelector("#__obg").addEventListener("click", function () { track("continue_inapp"); });
+    w.addEventListener("click", function (e) { if (e.target === w) w.remove(); });
+  }
+
+  /* ---------- click handling ---------- */
+  card.addEventListener("click", function (e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return; /* native modified click */
+    track("cta");
+    if (inApp) {
+      e.preventDefault();
+      escapeNow(showOverlay);          /* silent deep-link; guide only if it no-ops */
       return;
     }
-    if(inApp&&android){
-      /* opens the default browser; browser_fallback_url guarantees a landing */
-      var bare=URL_.replace(/^https?:\/\//,"");
-      bounceThenFallback(
-        "intent://"+bare+"#Intent;scheme=https;action=android.intent.action.VIEW;"+
-        "S.browser_fallback_url="+encodeURIComponent(URL_)+";end");
-      return;
-    }
-    /* normal browser / desktop → new tab, fall back to same tab */
-    var w=window.open(URL_,"_blank","noopener,noreferrer");
-    if(!w||w.closed||typeof w.closed==="undefined"){ location.href=URL_; }
-  }
-
-  card.addEventListener("click",function(e){
-    /* respect cmd/ctrl/middle-click and let the native anchor work */
-    if(e.metaKey||e.ctrlKey||e.shiftKey||e.button===1)return;
     e.preventDefault();
-    track();
-    openExternal();
+    var win = window.open(URL_, "_blank", "noopener,noreferrer");
+    if (!win || win.closed || typeof win.closed === "undefined") location.href = URL_;
   });
 })();
 
